@@ -214,6 +214,10 @@ export interface Clip {
   enabled: boolean;
   /** Clips sharing a linkId move/select together (video + its audio). */
   linkId?: ID;
+  /** Clips sharing a groupId select/move together (Clip > Group); independent of linking. */
+  groupId?: ID;
+  /** Clip > Video Options > Time Interpolation (default frameSampling). */
+  timeInterpolation?: "frameSampling" | "frameBlending" | "opticalFlow";
   /** Which audio channel(s) of the source this audio clip plays. */
   audioChannel?: number;
   label?: LabelColor;
@@ -341,4 +345,9 @@ export interface ExportJob {
   error?: string;
   startedAt?: number;
   finishedAt?: number;
+  /** Optional details (export queue UI). */
+  sequenceId?: ID;
+  format?: ExportFormat;
+  presetName?: string;
+  warnings?: string[];
 }

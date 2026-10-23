@@ -136,40 +136,93 @@ export const EFFECTS: EffectDef[] = [
       { key: "vignetteMidpoint", label: "Vignette Midpoint", min: 0, max: 100, default: 50 },
       { key: "vignetteRoundness", label: "Vignette Roundness", min: -100, max: 100, default: 0 },
       { key: "vignetteFeather", label: "Vignette Feather", min: 0, max: 100, default: 50 },
+      // Creative split toning (Shadow Tint / Highlight Tint wheels + Tint Balance).
+      { key: "shadowTintHue", label: "Shadow Tint Hue", min: 0, max: 360, default: 0 },
+      { key: "shadowTintAmount", label: "Shadow Tint Amount", min: 0, max: 100, default: 0 },
+      { key: "highTintHue", label: "Highlight Tint Hue", min: 0, max: 360, default: 0 },
+      { key: "highTintAmount", label: "Highlight Tint Amount", min: 0, max: 100, default: 0 },
+      { key: "tintBalance", label: "Tint Balance", min: -100, max: 100, default: 0 },
+      // Curves, as a FIT of the Lumetri curve editor onto existing primitives (see compile):
+      // master output level at input 0 / 0.5 / 1 (x100), and per-channel midpoint offsets.
+      { key: "curveBlack", label: "Curve Black Out", min: 0, max: 100, default: 0 },
+      { key: "curveMid", label: "Curve Mid Out", min: 0, max: 100, default: 50 },
+      { key: "curveWhite", label: "Curve White Out", min: 0, max: 100, default: 100 },
+      { key: "curveRed", label: "Curve Red Mid", min: -100, max: 100, default: 0 },
+      { key: "curveGreen", label: "Curve Green Mid", min: -100, max: 100, default: 0 },
+      { key: "curveBlue", label: "Curve Blue Mid", min: -100, max: 100, default: 0 },
     ],
     options: [
       { key: "look", label: "Look", type: "select", default: "None", choices: ["None", "Cinematic Teal-Orange", "Warm Film", "Cool Night", "Bleach Bypass", "Vintage", "B&W High Contrast", "Kodak 2383", "Fuji Eterna", "Faded Pastel"] },
+      // Per-section enable checkboxes (Lumetri panel section headers).
+      { key: "basicOn", label: "Basic Correction", type: "boolean", default: true },
+      { key: "creativeOn", label: "Creative", type: "boolean", default: true },
+      { key: "curvesOn", label: "Curves", type: "boolean", default: true },
+      { key: "wheelsOn", label: "Color Wheels", type: "boolean", default: true },
+      { key: "vignetteOn", label: "Vignette", type: "boolean", default: true },
     ],
     compile: (v, o) => {
       const prims: VideoPrimitive[] = [];
+      const on = (k: string) => o[k] !== false;
       const wheel = (hue: number, amt: number, luma: number): [number, number, number] => {
         const a = (amt / 100) * 0.3;
         const h = (hue * Math.PI) / 180;
         const l = luma / 100 * 0.3;
         return [a * Math.cos(h) + l, a * Math.cos(h - (2 * Math.PI) / 3) + l, a * Math.cos(h + (2 * Math.PI) / 3) + l];
       };
-      if (v.temperature) prims.push({ op: "temperature", amount: v.temperature / 100 });
-      if (v.tint) prims.push({ op: "tint", amount: v.tint / 100 });
-      if (v.exposure) prims.push({ op: "exposure", stops: v.exposure });
-      if (v.contrast) prims.push({ op: "contrast", amount: v.contrast / 100 });
-      if (v.highlights || v.shadows || v.whites || v.blacks)
-        prims.push({ op: "tones", highlights: v.highlights / 100, shadows: v.shadows / 100, whites: v.whites / 100, blacks: v.blacks / 100 });
-      if (v.saturation !== 100) prims.push({ op: "saturation", factor: v.saturation / 100 });
-      const look = String(o.look ?? "None");
-      if (look !== "None") prims.push({ op: "lut", name: look, intensity: v.lookIntensity / 100 });
-      if (v.fadedFilm) prims.push({ op: "fade", amount: v.fadedFilm / 100 });
-      if (v.vibrance) prims.push({ op: "vibrance", amount: v.vibrance / 100 });
-      if (v.creativeSaturation !== 100) prims.push({ op: "saturation", factor: v.creativeSaturation / 100 });
-      if (v.shadowAmount || v.midAmount || v.highAmount || v.shadowLuma || v.midLuma || v.highLuma)
+      if (on("basicOn")) {
+        if (v.temperature) prims.push({ op: "temperature", amount: v.temperature / 100 });
+        if (v.tint) prims.push({ op: "tint", amount: v.tint / 100 });
+        if (v.exposure) prims.push({ op: "exposure", stops: v.exposure });
+        if (v.contrast) prims.push({ op: "contrast", amount: v.contrast / 100 });
+        if (v.highlights || v.shadows || v.whites || v.blacks)
+          prims.push({ op: "tones", highlights: v.highlights / 100, shadows: v.shadows / 100, whites: v.whites / 100, blacks: v.blacks / 100 });
+        if (v.saturation !== 100) prims.push({ op: "saturation", factor: v.saturation / 100 });
+      }
+      if (on("creativeOn")) {
+        const look = String(o.look ?? "None");
+        if (look !== "None") prims.push({ op: "lut", name: look, intensity: v.lookIntensity / 100 });
+        if (v.fadedFilm) prims.push({ op: "fade", amount: v.fadedFilm / 100 });
+        if (v.vibrance) prims.push({ op: "vibrance", amount: v.vibrance / 100 });
+        if (v.creativeSaturation !== 100) prims.push({ op: "saturation", factor: v.creativeSaturation / 100 });
+        if (v.shadowTintAmount || v.highTintAmount) {
+          // Split toning; Tint Balance biases toward the shadow (-) or highlight (+) tint.
+          const b = (v.tintBalance ?? 0) / 100;
+          const sh = wheel(v.shadowTintHue, v.shadowTintAmount * Math.min(1, 1 - b), 0);
+          const hi = wheel(v.highTintHue, v.highTintAmount * Math.min(1, 1 + b), 0);
+          prims.push({ op: "colorBalance", shadows: sh, midtones: [0, 0, 0], highlights: hi });
+        }
+        if (v.sharpen > 0) prims.push({ op: "sharpen", amount: v.sharpen / 20 });
+        if (v.sharpen < 0) prims.push({ op: "blur", radius: -v.sharpen / 25, direction: "both" });
+      }
+      if (on("curvesOn")) {
+        // HONEST NOTE: there is no curve/LUT-from-points primitive. The master curve is fitted
+        // to a levels + gamma model through its outputs at 0, 0.5 and 1:
+        //   out = lo + (hi - lo) * x^p, with p chosen so the curve passes through the midpoint.
+        // Implemented as gamma (x^(1/value)), contrast (scale about 0.5) and brightness (offset).
+        // Per-channel curves become midtone color-balance offsets. Extreme S-curves are approximated.
+        const lo = (v.curveBlack ?? 0) / 100, hi = (v.curveWhite ?? 100) / 100, m = (v.curveMid ?? 50) / 100;
+        const s = hi - lo;
+        if (Math.abs(lo) > 1e-4 || Math.abs(hi - 1) > 1e-4 || Math.abs(m - 0.5) > 1e-4) {
+          if (s > 0.01) {
+            const ratio = Math.min(0.98, Math.max(0.02, (m - lo) / s));
+            const pw = Math.log(ratio) / Math.log(0.5);
+            if (Math.abs(pw - 1) > 1e-3) prims.push({ op: "gamma", value: Math.min(10, Math.max(0.1, 1 / pw)) });
+          }
+          if (Math.abs(s - 1) > 1e-4) prims.push({ op: "contrast", amount: Math.max(-1, Math.min(1, s - 1)) });
+          const off = lo + 0.5 * s - 0.5;
+          if (Math.abs(off) > 1e-4) prims.push({ op: "brightness", amount: off });
+        }
+        if (v.curveRed || v.curveGreen || v.curveBlue)
+          prims.push({ op: "colorBalance", shadows: [0, 0, 0], midtones: [v.curveRed / 100 * 0.3, v.curveGreen / 100 * 0.3, v.curveBlue / 100 * 0.3], highlights: [0, 0, 0] });
+      }
+      if (on("wheelsOn") && (v.shadowAmount || v.midAmount || v.highAmount || v.shadowLuma || v.midLuma || v.highLuma))
         prims.push({
           op: "colorBalance",
           shadows: wheel(v.shadowHue, v.shadowAmount, v.shadowLuma),
           midtones: wheel(v.midHue, v.midAmount, v.midLuma),
           highlights: wheel(v.highHue, v.highAmount, v.highLuma),
         });
-      if (v.sharpen > 0) prims.push({ op: "sharpen", amount: v.sharpen / 20 });
-      if (v.sharpen < 0) prims.push({ op: "blur", radius: -v.sharpen / 25, direction: "both" });
-      if (v.vignetteAmount)
+      if (on("vignetteOn") && v.vignetteAmount)
         prims.push({ op: "vignette", amount: v.vignetteAmount / 5, midpoint: v.vignetteMidpoint / 100, roundness: v.vignetteRoundness / 100, feather: v.vignetteFeather / 100 });
       return prims;
     },
@@ -270,6 +323,30 @@ export const EFFECTS: EffectDef[] = [
   { type: "invertPolarity", name: "Invert (Polarity)", category: "Special", kind: "audio", description: "Invert waveform polarity.", params: [], compile: () => [ { op: "invertPolarity" } ] },
   { type: "fillLeftWithRight", name: "Mono → Stereo", category: "Special", kind: "audio", description: "Duplicate mono to both channels.", params: [], compile: () => [ { op: "monoToStereo" } ] },
   { type: "swapChannels", name: "Swap Channels", category: "Special", kind: "audio", description: "Swap left and right.", params: [], compile: () => [ { op: "swapChannels" } ] },
+
+  // ---------------- Additional effects (compile to existing primitives only) ----------------
+  { type: "colorBalanceRGB", name: "Color Balance", category: "Color Correction", kind: "video", description: "Shift shadows, midtones and highlights toward red/green/blue.",
+    params: [
+      { key: "sr", label: "Shadow Red Balance", min: -100, max: 100, default: 0 }, { key: "sg", label: "Shadow Green Balance", min: -100, max: 100, default: 0 }, { key: "sb", label: "Shadow Blue Balance", min: -100, max: 100, default: 0 },
+      { key: "mr", label: "Midtone Red Balance", min: -100, max: 100, default: 0 }, { key: "mg", label: "Midtone Green Balance", min: -100, max: 100, default: 0 }, { key: "mb", label: "Midtone Blue Balance", min: -100, max: 100, default: 0 },
+      { key: "hr", label: "Highlight Red Balance", min: -100, max: 100, default: 0 }, { key: "hg", label: "Highlight Green Balance", min: -100, max: 100, default: 0 }, { key: "hb", label: "Highlight Blue Balance", min: -100, max: 100, default: 0 },
+    ],
+    compile: (v) => [ { op: "colorBalance", shadows: [v.sr / 300, v.sg / 300, v.sb / 300], midtones: [v.mr / 300, v.mg / 300, v.mb / 300], highlights: [v.hr / 300, v.hg / 300, v.hb / 300] } ] },
+  { type: "procAmp", name: "ProcAmp", category: "Adjust", kind: "video", description: "Brightness, contrast, hue and saturation in one effect.",
+    params: [ { key: "brightness", label: "Brightness", min: -100, max: 100, default: 0 }, { key: "contrast", label: "Contrast", min: 0, max: 200, default: 100 }, { key: "hue", label: "Hue", min: -180, max: 180, default: 0, unit: "°" }, { key: "saturation", label: "Saturation", min: 0, max: 200, default: 100 } ],
+    compile: (v) => [ { op: "brightness", amount: v.brightness / 100 }, { op: "contrast", amount: (v.contrast - 100) / 100 }, { op: "hue", degrees: v.hue }, { op: "saturation", factor: v.saturation / 100 } ] },
+  { type: "cameraBlur", name: "Camera Blur", category: "Blur & Sharpen", kind: "video", description: "Out-of-focus lens blur.",
+    params: [ { key: "percent", label: "Percent Blur", min: 0, max: 100, default: 10 } ], compile: (v) => [ { op: "blur", radius: v.percent / 2, direction: "both" } ] },
+  { type: "colorReplaceTint", name: "Leave Color (Desaturate)", category: "Color Correction", kind: "video", description: "Desaturate the image by an amount.",
+    params: [ { key: "amount", label: "Amount to Decolor", min: 0, max: 100, default: 100 } ], compile: (v) => [ { op: "saturation", factor: 1 - v.amount / 100 } ] },
+  { type: "bass", name: "Bass", category: "Filter & EQ", kind: "audio", description: "Boost or cut low frequencies.",
+    params: [ { key: "boost", label: "Boost", min: -24, max: 24, default: 0, unit: "dB" } ], compile: (v) => [ { op: "eq3", lowDb: v.boost, midDb: 0, highDb: 0, midFreq: 1000 } ] },
+  { type: "treble", name: "Treble", category: "Filter & EQ", kind: "audio", description: "Boost or cut high frequencies.",
+    params: [ { key: "boost", label: "Boost", min: -24, max: 24, default: 0, unit: "dB" } ], compile: (v) => [ { op: "eq3", lowDb: 0, midDb: 0, highDb: v.boost, midFreq: 1000 } ] },
+  // Essential Sound tag: stores the clip's audio type (Dialogue/Music/SFX/Ambience). No audio processing;
+  // the Essential Sound panel manages the real effect chain (tagged with options.esRole).
+  { type: "essentialSound", name: "Essential Sound", category: "Special", kind: "audio", description: "Essential Sound audio type tag (no processing).",
+    params: [], options: [ { key: "audioType", label: "Audio Type", type: "select", default: "Dialogue", choices: ["Dialogue", "Music", "SFX", "Ambience"] } ], compile: () => [] },
 ];
 
 export const EFFECT_MAP: Record<string, EffectDef> = Object.fromEntries(EFFECTS.map((e) => [e.type, e]));

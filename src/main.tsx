@@ -5,10 +5,12 @@ import "./styles/theme.css";
 import "./commands/index";
 import { loadUserKeys } from "./commands/registry";
 import { installKeyboard } from "./keyboard";
+import { initProjectIO } from "./projectIO";
 import App from "./App";
 
 loadUserKeys();
 installKeyboard();
+initProjectIO();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

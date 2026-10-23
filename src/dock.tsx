@@ -7,7 +7,7 @@ import { useEditor } from "./store/store";
 
 let dockApi: DockviewApi | null = null;
 let currentWorkspace = "editing";
-const LAYOUT_KEY = (ws: string) => `editcut.layout.${ws}`;
+const LAYOUT_KEY = (ws: string) => `editcut.layout.v2.${ws}`;
 
 export function getDockApi(): DockviewApi | null {
   return dockApi;

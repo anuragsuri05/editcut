@@ -103,6 +103,8 @@ export type AIEvent =
   | { type: "tool_result"; id: string; name: string; summary: string; isError?: boolean }
   | { type: "project"; project: Project; label: string } // updated project state to apply as ONE undoable step
   | { type: "export_started"; job: ExportJob }
+  /** Sequence has titles/captions: the client renders graphics (src/render/graphics) and starts the export itself. */
+  | { type: "export_request"; sequenceId: ID; settings: ExportSettings }
   | { type: "done"; messages: unknown[] } // full API message history for the next turn
   | { type: "error"; error: string };
 

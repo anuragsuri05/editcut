@@ -214,7 +214,8 @@ export function clearRange(seq: Sequence, trackId: ID, start: number, end: numbe
     if (ce <= start + EPS || c.start >= end - EPS) continue;
     if (c.start < start - EPS && ce > end + EPS) {
       const right = splitClip(seq, c.id, end)!;
-      if (right && c.linkId) right.linkId = c.linkId + "_r"; // keep partner linkage approximate
+      // partners split at the same point (e.g. linked A/V cleared together) share this derived id
+      if (right && c.linkId) right.linkId = `${c.linkId}_${Math.round(end * 1000)}`;
       c.duration = start - c.start;
     } else if (c.start >= start - EPS && ce <= end + EPS) {
       removeClip(seq, c.id);
@@ -470,10 +471,11 @@ export function trimClip(project: Project | undefined, seq: Sequence, clipId: ID
   if (edge === "in") {
     // moving in-point later shortens the clip
     d = Math.min(d, c.duration - minDur);
-    d = Math.max(d, -(c.sourceIn / c.speed)); // can't extend before source start
+    // can't extend before source start (reversed clips: the head shows the source END)
+    d = Math.max(d, c.reversed ? -((limit - (c.sourceIn + c.duration * c.speed)) / c.speed) : -(c.sourceIn / c.speed));
     if (mode === "normal" && prev) d = Math.max(d, clipEnd(prev) - c.start);
     if (mode === "normal") d = Math.max(d, -c.start);
-    c.sourceIn += d * c.speed;
+    if (!c.reversed) c.sourceIn += d * c.speed;
     c.duration -= d;
     shiftKeyframes(c, d);
     if (mode === "normal") {
@@ -486,10 +488,12 @@ export function trimClip(project: Project | undefined, seq: Sequence, clipId: ID
     }
   } else {
     d = Math.max(d, -(c.duration - minDur));
-    d = Math.min(d, (limit - (c.sourceIn + c.duration * c.speed)) / c.speed);
+    // reversed clips: the tail shows the source START (sourceIn)
+    d = Math.min(d, c.reversed ? c.sourceIn / c.speed : (limit - (c.sourceIn + c.duration * c.speed)) / c.speed);
     if (mode === "normal" && next) d = Math.min(d, next.start - clipEnd(c));
     const oldEnd = clipEnd(c);
     c.duration += d;
+    if (c.reversed) c.sourceIn -= d * c.speed;
     if (mode === "ripple") {
       for (const id of rippleTracks(seq, [c.trackId])) {
         for (const x of seq.clips) if (x.trackId === id && x.id !== c.id && x.start >= oldEnd - EPS) x.start += d;

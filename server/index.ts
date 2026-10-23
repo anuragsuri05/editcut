@@ -8,7 +8,7 @@ import { eventsHandler } from "./events";
 import { mediaRouter, browseHandler } from "./media";
 import { projectsRouter } from "./projects";
 import { exportRouter } from "./export/index";
-import { aiRouter } from "./ai/index";
+import { aiRouter, transcribeRouter } from "./ai/index";
 import { whisperStatus } from "./ai/transcribe";
 
 const app = express();
@@ -43,6 +43,7 @@ app.post("/api/reveal", (req, res) => {
 });
 
 app.use("/files/media", express.static(MEDIA_DIR, { fallthrough: false, maxAge: "1h" }));
+app.use("/api/media", transcribeRouter);
 app.use("/api/media", mediaRouter);
 app.get("/api/fs", browseHandler);
 app.use("/api/projects", projectsRouter);
