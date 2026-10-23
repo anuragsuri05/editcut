@@ -4,7 +4,7 @@
 // adjustment layers re-process the composite below; nested sequences recurse.
 import type { Clip, Mask, Project, Sequence } from "@shared/types";
 import { GL, type Program, type Target } from "./gl";
-import { MediaPool, mediaUrl } from "./media";
+import { MediaPool, mediaUrl, serverFrameUrl } from "./media";
 import { buildPasses, clipVideoPrimitives, colorSignature, type Pass } from "./passes";
 import {
   ADD_FRAG, APPLY_MASK_FRAG, BLUR_FRAG, BRIGHTPASS_FRAG, COPY_FRAG, EDGE_FRAG, EMBOSS_FRAG, LAYER_FRAG, MASK_FRAG,
@@ -27,6 +27,8 @@ export interface RenderOptions {
   gridCell?: number;
   /** True while playing: allows skipping mipmaps etc. */
   playing?: boolean;
+  /** Use server-decoded stills immediately for any video element that isn't showing the wanted frame. */
+  serverFrames?: boolean;
 }
 
 interface Layer {
@@ -281,18 +283,50 @@ export class Renderer {
       } else if (asset.kind === "video" && asset.hasVideo) {
         const pv = this.pool.video(keyPrefix + clip.id, mediaUrl(asset));
         const el = pv.el;
-        if (el.readyState < 2 || !el.videoWidth) {
-          this.incomplete = true;
-          if (!pv.tex) return null;
-        } else if (pv.uploaded !== pv.frameSeq || !el.paused) {
+        const target = sourceTimeUnclamped(clip, t, asset.duration);
+        const fps = asset.fps || 30;
+        const ready = el.readyState >= 2 && !!el.videoWidth;
+        // "fresh" = the element is showing (about) the wanted frame
+        const fresh = ready && !el.seeking && (opts.playing ? Math.abs(el.currentTime - target) < 0.5 : Math.abs(el.currentTime - target) < 1.5 / fps);
+        const now = performance.now();
+        if (fresh) pv.stallSince = 0;
+        else if (!pv.stallSince) pv.stallSince = now;
+        if (ready && (pv.uploaded !== pv.frameSeq || !el.paused)) {
           if (!pv.tex) pv.tex = g.createTexture();
           const strongDownscale = !opts.playing && el.videoWidth > 2.2 * LW;
           g.upload(pv.tex, el, strongDownscale);
           pv.uploaded = pv.frameSeq;
         }
-        if (el.seeking) this.incomplete = true;
-        srcTex = pv.tex;
+        if (!fresh) this.incomplete = true;
+        srcTex = ready || pv.tex ? pv.tex : null;
         srcPx = el.videoWidth || srcW;
+        // Fallback: the element can't deliver this frame (stalled seek, undecodable codec,
+        // headless browser without a display) → use a server-decoded still for it.
+        const stallMs = opts.serverFrames ? 0 : opts.playing ? 1000 : 500;
+        if (!fresh && pv.stallSince && now - pv.stallSince >= stallMs) {
+          const step = 0.25;
+          const tq = opts.playing ? Math.round(target / step) * step : target;
+          const want = (tt: number) => {
+            const url = serverFrameUrl(asset, tt, Math.max(LW, 64));
+            return this.pool.images.get(url) ?? (this.pool.pendingFrames() < 3 ? this.pool.image(url) : null);
+          };
+          const im = want(tq);
+          // while playing, prefetch the next stills so they're ready when the playhead arrives
+          if (opts.playing) for (let k = 1; k <= 3; k++) want(Math.min(asset.duration, tq + k * step * Math.max(1, clip.speed)));
+          if (im?.ready) {
+            if (!im.tex) im.tex = g.createTexture();
+            if (!im.uploaded) {
+              g.upload(im.tex, im.img);
+              im.uploaded = true;
+            }
+            srcTex = im.tex;
+            srcPx = im.img.naturalWidth || srcW;
+            pv.lastStill = { tex: im.tex, width: srcPx };
+          } else if (!ready && pv.lastStill?.tex && opts.playing) {
+            srcTex = pv.lastStill.tex;
+            srcPx = pv.lastStill.width;
+          }
+        }
       } else return null;
     }
     if (!srcTex) return null;
@@ -440,6 +474,11 @@ export class Renderer {
       }
     }
     return cur;
+  }
+
+  /** Pause/evict pooled media not in `activeKeys`, freeing GL textures. */
+  sweep(activeKeys: Set<string>): void {
+    this.pool.sweep(this.g?.gl ?? null, activeKeys);
   }
 
   dispose(): void {

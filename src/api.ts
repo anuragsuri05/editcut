@@ -76,17 +76,35 @@ export const api = {
   saveSettings: (s: Partial<{ anthropicApiKey: string; model: string; exportDirectory: string }>) => post("/api/settings", s).then((r) => json<ServerSettings>(r)),
 };
 
-/** Server-sent events stream (media status, export progress). Event payloads: {type, ...}. */
+/**
+ * Server-sent events (media status, export progress). All subscribers share ONE
+ * EventSource: browsers allow ~6 HTTP/1.1 connections per host and video range
+ * requests need them. Event payloads: {type, ...}.
+ */
+const eventListeners = new Set<(e: ServerEvent) => void>();
+let eventSource: EventSource | null = null;
+
 export function subscribeEvents(onEvent: (e: ServerEvent) => void): () => void {
-  const es = new EventSource("/api/events");
-  es.onmessage = (m) => {
-    try {
-      onEvent(JSON.parse(m.data));
-    } catch {
-      /* ignore */
+  eventListeners.add(onEvent);
+  if (!eventSource) {
+    eventSource = new EventSource("/api/events");
+    eventSource.onmessage = (m) => {
+      let data: ServerEvent;
+      try {
+        data = JSON.parse(m.data);
+      } catch {
+        return;
+      }
+      for (const l of eventListeners) l(data);
+    };
+  }
+  return () => {
+    eventListeners.delete(onEvent);
+    if (!eventListeners.size && eventSource) {
+      eventSource.close();
+      eventSource = null;
     }
   };
-  return () => es.close();
 }
 
 export type ServerEvent =

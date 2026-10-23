@@ -20,11 +20,23 @@ export interface PooledVideo {
   uploaded: number;
   tex: WebGLTexture | null;
   lastSeekAt: number;
+  /** performance.now() when the element first failed to show the wanted frame (0 = fine). */
+  stallSince: number;
+  /** Last server-decoded still shown for this element (held while the next one loads). */
+  lastStill: { tex: WebGLTexture | null; width: number } | null;
+}
+
+/** Server-side decoded still (ffmpeg) for a media time — fallback when a <video> can't deliver a frame. */
+export function serverFrameUrl(asset: MediaAsset, t: number, width: number): string {
+  const fps = asset.fps || 30;
+  const tq = Math.max(0, Math.round(t * fps) / fps);
+  const w = Math.max(64, Math.min(asset.width || 1920, Math.ceil(width / 128) * 128));
+  return `/api/media/${asset.id}/frame?t=${tq.toFixed(4)}&w=${w}`;
 }
 
 export class MediaPool {
   videos = new Map<string, PooledVideo>();
-  images = new Map<string, { img: HTMLImageElement; ready: boolean; tex: WebGLTexture | null; uploaded: boolean }>();
+  images = new Map<string, { img: HTMLImageElement; ready: boolean; failed: boolean; tex: WebGLTexture | null; uploaded: boolean; lastUsed: number }>();
   graphics = new Map<string, { canvas: HTMLCanvasElement; tex: WebGLTexture | null; dirty: boolean; lastUsed: number }>();
   private clock = 0;
 
@@ -48,7 +60,7 @@ export class MediaPool {
       el.preload = "auto";
       el.crossOrigin = "anonymous";
       el.src = url;
-      const pv: PooledVideo = { el, key, url, lastUsed: this.clock, frameSeq: 0, uploaded: -1, tex: null, lastSeekAt: 0 };
+      const pv: PooledVideo = { el, key, url, lastUsed: this.clock, frameSeq: 0, uploaded: -1, tex: null, lastSeekAt: 0, stallSince: 0, lastStill: null };
       const bump = () => {
         pv.frameSeq++;
         this.onUpdate();
@@ -76,16 +88,27 @@ export class MediaPool {
     if (!im) {
       const img = new Image();
       img.crossOrigin = "anonymous";
-      const entry = { img, ready: false, tex: null as WebGLTexture | null, uploaded: false };
+      const entry = { img, ready: false, failed: false, tex: null as WebGLTexture | null, uploaded: false, lastUsed: this.clock };
       img.onload = () => {
         entry.ready = true;
         this.onUpdate();
+      };
+      img.onerror = () => {
+        entry.failed = true;
       };
       img.src = url;
       im = entry;
       this.images.set(url, im);
     }
+    im.lastUsed = this.clock;
     return im;
+  }
+
+  /** Number of server-frame requests still loading. */
+  pendingFrames(): number {
+    let n = 0;
+    for (const [u, im] of this.images) if (!im.ready && !im.failed && u.includes("/frame?")) n++;
+    return n;
   }
 
   /** 2D-canvas texture for a generator/caption clip at the given render scale. */
@@ -116,6 +139,15 @@ export class MediaPool {
     while (this.videos.size > this.maxVideos && old.length) {
       const v = old.shift()!;
       this.dropVideo(v, gl);
+    }
+    const frames = [...this.images.entries()].filter(([u]) => u.includes("/frame?")).sort((a, b) => a[1].lastUsed - b[1].lastUsed);
+    while (frames.length > 48) {
+      const [u, im] = frames.shift()!;
+      if (im.tex) {
+        for (const v of this.videos.values()) if (v.lastStill?.tex === im.tex) v.lastStill = null;
+        if (gl) gl.deleteTexture(im.tex);
+      }
+      this.images.delete(u);
     }
     for (const [k, g] of this.graphics) {
       if (this.clock - g.lastUsed > 600) {

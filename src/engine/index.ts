@@ -120,13 +120,20 @@ export function renderSequenceFrame(seq: Sequence, t: number, canvas?: HTMLCanva
     await Promise.all(waits);
     // let rVFC/seeked handlers bump frame counters
     await new Promise((res) => setTimeout(res, 0));
-    r.render(project, seq, t, { width: w, height: h, bypassEffects: opts.bypassEffects });
+    // Elements that still can't show their frame fall back to server-decoded stills: render,
+    // wait for any requested stills, and render again (bounded).
+    for (let pass = 0; pass < 4; pass++) {
+      r.render(project, seq, t, { width: w, height: h, bypassEffects: opts.bypassEffects, serverFrames: true });
+      const pending = [...r.pool.images.entries()].filter(([u, im]) => u.includes("/frame?") && !im.ready && !im.failed).map(([, im]) => im.img);
+      if (!r.incomplete || !pending.length) break;
+      await Promise.all(pending.map((img) => waitForImage(img, 15000)));
+    }
     const out = canvas ?? document.createElement("canvas");
     if (out.width !== w) out.width = w;
     if (out.height !== h) out.height = h;
     const ctx = out.getContext("2d")!;
     ctx.drawImage(r.canvas, 0, 0, w, h);
-    r.pool.sweep(null, new Set(needs.map((n) => n.key)));
+    r.sweep(new Set(needs.map((n) => n.key)));
     return out;
   });
   queue = job.catch(() => undefined);
@@ -155,7 +162,7 @@ function frame(now: number) {
     if (programRenderer && seq) {
       const needs = collectVideoNeeds(ed.project, seq, pb.time, 2);
       const keys = syncVideos(programRenderer.pool, needs, programPlaying, pb.rate, seq.settings.fps);
-      programRenderer.pool.sweep(null, keys);
+      programRenderer.sweep(keys);
     }
     audio.syncProgram(ed.project, seq, pb.time, programPlaying, pb.rate);
     sourcePlayer?.sync();

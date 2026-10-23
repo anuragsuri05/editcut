@@ -1,7 +1,7 @@
 // Exercises shared/ops edit operations. Run: npx tsx <this file>
-import * as ops from "/Users/lakshsharma/Downloads/100 projects/editcut/shared/ops";
-import { makeProject, makeSequence } from "/Users/lakshsharma/Downloads/100 projects/editcut/shared/factory";
-import type { MediaAsset, Project, Sequence } from "/Users/lakshsharma/Downloads/100 projects/editcut/shared/types";
+import * as ops from "../shared/ops";
+import { makeProject, makeSequence } from "../shared/factory";
+import type { MediaAsset, Project, Sequence } from "../shared/types";
 
 let fails = 0;
 const eq = (a: number, b: number) => Math.abs(a - b) < 1e-4;

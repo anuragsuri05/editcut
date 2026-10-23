@@ -41,3 +41,25 @@ knowledge/     Reference notes on Premiere Pro, Resolve, Final Cut, CapCut, Film
 One effect definition drives both renderers. Each effect in `shared/effects.ts` compiles to a fixed set of primitives (exposure, contrast, blur, chroma key and so on). The browser preview implements those primitives in WebGL, and the exporter implements them as ffmpeg filters.
 
 The AI edits the same document you do. Claude's tools call the same `shared/ops.ts` functions as the timeline UI. Each AI turn arrives as a single undo step.
+
+## Tests
+
+```bash
+npm test              # typecheck + all suites below
+npm run test:ops      # editing operations (insert/overwrite/ripple/roll/razor/extract…)
+npm run test:ai       # every Claude tool against real media (transcription, captions, cuts…)
+npm run test:export   # 15 real ffmpeg renders checked with ffprobe
+```
+
+The AI and export suites need the sample media in `samples/`. Generate it with `sh scripts/make-samples.sh` (macOS: it uses `say` for the speech sample).
+
+## Known limitations
+
+- **Curves:** the Lumetri RGB curves are approximations. HSL Secondary, the Hue/Sat curves and Remix are not implemented yet.
+- **Preview audio:** no pitch shifting, and no audio while scrubbing or playing in reverse.
+- **Export:**
+  - Keyframed effect parameters are stepped at about 15 updates per second.
+  - The Hue, Saturation, Color and Luminosity blend modes export as Normal.
+  - Timecode and name overlays need an ffmpeg build that includes `drawtext`.
+- **Stubs:** Multi-camera, Synchronize, Merge Clips, voice-over recording and Collect Files show a notice only.
+- **Titles in AI-started exports:** text and caption graphics are rendered in the browser. An export Claude starts while no editor window is open leaves them out.
