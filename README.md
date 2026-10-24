@@ -11,7 +11,14 @@ npm install
 npm run dev          # server on :5174 + UI on http://localhost:5173
 ```
 
-The first time you open the AI Assistant, enter your Anthropic API key (or set `ANTHROPIC_API_KEY` before `npm run dev`). The key is kept in `~/EditCut/settings.json`, which is readable only by your user.
+### Connecting Claude
+
+Open the AI Assistant panel (or **AI Settings**, `Cmd+,`) and choose one of two options:
+
+- **Sign in with Claude Code.** EditCut uses the [Claude Code](https://claude.com/claude-code) CLI already installed on your computer and the Claude account you're signed in with. It runs `claude -p` headless and gives Claude only EditCut's editing tools, through a local MCP endpoint (no shell or file access). If you aren't signed in yet, the button runs `claude auth login`, which opens your browser.
+- **Anthropic API key.** Paste a key from console.anthropic.com, or set `ANTHROPIC_API_KEY` before running `npm run dev`. The key is stored in `~/EditCut/settings.json`, which only your user can read.
+
+"Automatic" uses the API key when one is set and Claude Code otherwise. You can pin either one in AI Settings.
 
 Data lives in `~/EditCut` (imported media, proxies, thumbnails, projects). Exports default to `~/Movies/EditCut`. Override these with `EDITCUT_DATA` and the Export settings.
 

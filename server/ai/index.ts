@@ -8,11 +8,37 @@ import { z } from "zod";
 import type { AIChatRequest, AIEvent } from "../../src/api";
 import { MEDIA_DIR } from "../config";
 import { runAgentTurn } from "./agent";
+import { apiKey, getSettings } from "../config";
+import { claudeCodeMcpRouter, claudeCodeStatus, claudeCodeLogout, runClaudeCodeTurn, startClaudeCodeLogin } from "./claudeCode";
 import { DOWNLOADABLE_MODELS, downloadWhisperModel, transcribeMedia, whisperStatus } from "./transcribe";
 import { assetPathFromRecord } from "./mediaTools";
 
 export const aiRouter = Router();
 export const transcribeRouter = Router();
+
+aiRouter.use("/mcp", claudeCodeMcpRouter);
+
+/** Resolve which backend runs this turn. */
+export async function resolveProvider(): Promise<"api" | "claudeCode" | null> {
+  const pref = getSettings().aiProvider ?? "auto";
+  if (pref === "api") return "api";
+  if (pref === "claudeCode") return "claudeCode";
+  if (apiKey()) return "api";
+  const cc = await claudeCodeStatus();
+  return cc.loggedIn ? "claudeCode" : null;
+}
+
+aiRouter.get("/claude-code/status", async (req, res) => {
+  res.json(await claudeCodeStatus(req.query.refresh === "1"));
+});
+aiRouter.post("/claude-code/login", (req, res) => {
+  startClaudeCodeLogin(req.body?.method === "console" ? "console" : "claudeai");
+  res.json({ ok: true });
+});
+aiRouter.post("/claude-code/logout", async (_req, res) => {
+  await claudeCodeLogout();
+  res.json(await claudeCodeStatus(true));
+});
 
 const ChatBody = z.object({
   project: z.object({ id: z.string(), media: z.record(z.string(), z.unknown()), sequences: z.record(z.string(), z.unknown()) }).passthrough(),
@@ -44,11 +70,14 @@ aiRouter.post("/chat", async (req: Request, res: Response) => {
   });
   const ping = setInterval(() => !res.writableEnded && res.write(": ping\n\n"), 15000);
   try {
-    await runAgentTurn(
-      { ...body, sequenceId: body.sequenceId ?? null, selection: body.selection ?? { clipIds: [], itemIds: [] }, playhead: body.playhead ?? 0, history: body.history ?? [] },
-      send,
-      ac.signal,
-    );
+    const turn = { ...body, sequenceId: body.sequenceId ?? null, selection: body.selection ?? { clipIds: [], itemIds: [] }, playhead: body.playhead ?? 0, history: body.history ?? [] };
+    const provider = await resolveProvider();
+    if (provider === "claudeCode") await runClaudeCodeTurn(turn, send, ac.signal);
+    else if (provider === "api") await runAgentTurn(turn, send, ac.signal);
+    else {
+      send({ type: "error", error: "Connect Claude first: sign in with Claude Code or add an Anthropic API key in AI Settings." });
+      send({ type: "done", messages: turn.history });
+    }
   } catch (e) {
     send({ type: "error", error: (e as Error).message });
   } finally {

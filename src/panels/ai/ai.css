@@ -122,3 +122,17 @@
 .ai-settings .ai-ok { color: var(--success); }
 .ai-settings .ai-bad { color: var(--warn); }
 .ai-settings .hint { font-size: 11px; color: var(--text-faint); grid-column: 2; margin-top: -4px; }
+
+/* Connect Claude: Claude Code sign-in or API key */
+.ai-connect { display: flex; flex-direction: column; gap: 8px; }
+.ai-connect-option { border: 1px solid var(--border-strong); border-radius: 7px; padding: 10px; display: flex; flex-direction: column; gap: 7px; background: rgba(255, 255, 255, 0.02); }
+.ai-connect-option.active { border-color: rgba(192, 132, 252, 0.6); background: rgba(124, 77, 219, 0.08); }
+.ai-connect-option p { margin: 0; line-height: 1.4; font-size: 11px; }
+.ai-connect-head { display: flex; align-items: center; gap: 6px; color: #fff; }
+.ai-connect-name { font-weight: 600; }
+.ai-connect-badge { margin-left: auto; font-size: 10px; padding: 1px 6px; border-radius: 9px; background: rgba(192, 132, 252, 0.2); color: var(--ai); }
+.ai-connect-or { display: flex; align-items: center; gap: 8px; color: var(--text-faint); font-size: 11px; }
+.ai-connect-or::before, .ai-connect-or::after { content: ""; flex: 1; height: 1px; background: var(--border-strong); }
+.ai-connect .ai-ok { color: var(--success); }
+.ai-connect .ai-bad { color: var(--warn); }
+.ai-connect .btn { display: inline-flex; align-items: center; gap: 5px; }

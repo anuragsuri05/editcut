@@ -20,7 +20,9 @@ const post = (url: string, body: unknown) =>
   fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
 export interface ProjectSummary { id: ID; name: string; updatedAt: number; path: string }
-export interface ServerSettings { hasApiKey: boolean; model: string; whisperAvailable: boolean; whisperModel?: string; exportDirectory: string; dataDirectory: string }
+export interface ClaudeCodeStatus { installed: boolean; loggedIn: boolean; authMethod?: string; email?: string; subscriptionType?: string; version?: string; loginInProgress?: boolean }
+export type AIProvider = "auto" | "api" | "claudeCode";
+export interface ServerSettings { hasApiKey: boolean; model: string; aiProvider: AIProvider; claudeCodeModel: string; claudeCode: ClaudeCodeStatus; whisperAvailable: boolean; whisperModel?: string; exportDirectory: string; dataDirectory: string }
 
 export const api = {
   health: () => fetch("/api/health").then((r) => json<{ ok: true; ffmpeg: string }>(r)),
@@ -71,9 +73,14 @@ export const api = {
   cancelExport: (id: ID) => post(`/api/export/jobs/${id}/cancel`, {}).then((r) => json<{ ok: true }>(r)),
   revealFile: (path: string) => post("/api/reveal", { path }).then((r) => json<{ ok: true }>(r)),
 
+  // ---- Claude Code sign-in (uses the Claude Code CLI installed on this machine) ----
+  claudeCodeStatus: (refresh = false) => fetch(`/api/ai/claude-code/status${refresh ? "?refresh=1" : ""}`).then((r) => json<ClaudeCodeStatus>(r)),
+  claudeCodeLogin: (method: "claudeai" | "console" = "claudeai") => post("/api/ai/claude-code/login", { method }).then((r) => json<{ ok: true }>(r)),
+  claudeCodeLogout: () => post("/api/ai/claude-code/logout", {}).then((r) => json<ClaudeCodeStatus>(r)),
+
   // ---- settings ----
   getSettings: () => fetch("/api/settings").then((r) => json<ServerSettings>(r)),
-  saveSettings: (s: Partial<{ anthropicApiKey: string; model: string; exportDirectory: string }>) => post("/api/settings", s).then((r) => json<ServerSettings>(r)),
+  saveSettings: (s: Partial<{ anthropicApiKey: string; model: string; exportDirectory: string; aiProvider: AIProvider; claudeCodeModel: string }>) => post("/api/settings", s).then((r) => json<ServerSettings>(r)),
 };
 
 /**

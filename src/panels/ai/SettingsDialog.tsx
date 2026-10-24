@@ -7,6 +7,20 @@ import { Button, Dialog, Progress, Select, TextInput } from "../../ui/kit";
 import { useEditor } from "../../store/store";
 import { MODELS } from "./AssistantPanel";
 import { askClaude, useAISession } from "./aiSession";
+import { ConnectClaude } from "./ConnectClaude";
+
+const CC_MODELS = [
+  { value: "", label: "Claude Code default" },
+  { value: "opus", label: "Opus (latest)" },
+  { value: "sonnet", label: "Sonnet (latest)" },
+  { value: "haiku", label: "Haiku (latest)" },
+  { value: "fable", label: "Fable (latest)" },
+];
+const PROVIDERS = [
+  { value: "auto", label: "Automatic (API key if set, else Claude Code)" },
+  { value: "claudeCode", label: "Claude Code sign-in" },
+  { value: "api", label: "Anthropic API key" },
+];
 
 interface WhisperInfo {
   available: boolean;
@@ -20,8 +34,9 @@ const getWhisper = () => fetch("/api/ai/whisper").then((r) => r.json() as Promis
 
 function AISettingsDialog({ onClose }: { onClose: () => void }) {
   const [s, setS] = useState<ServerSettings | null>(null);
-  const [key, setKey] = useState("");
   const [model, setModel] = useState("claude-opus-5-5");
+  const [provider, setProvider] = useState<"auto" | "api" | "claudeCode">("auto");
+  const [ccModel, setCcModel] = useState("");
   const [exportDir, setExportDir] = useState("");
   const [whisper, setWhisper] = useState<WhisperInfo | null>(null);
   const [dlModel, setDlModel] = useState("base");
@@ -31,6 +46,8 @@ function AISettingsDialog({ onClose }: { onClose: () => void }) {
     api.getSettings().then((x) => {
       setS(x);
       setModel(x.model);
+      setProvider(x.aiProvider ?? "auto");
+      setCcModel(x.claudeCodeModel ?? "");
       setExportDir(x.exportDirectory);
     }).catch(() => undefined);
     getWhisper().then(setWhisper).catch(() => undefined);
@@ -46,8 +63,7 @@ function AISettingsDialog({ onClose }: { onClose: () => void }) {
   const save = async () => {
     setSaving(true);
     try {
-      const patch: Parameters<typeof api.saveSettings>[0] = { model, exportDirectory: exportDir };
-      if (key.trim()) patch.anthropicApiKey = key.trim();
+      const patch: Parameters<typeof api.saveSettings>[0] = { model, exportDirectory: exportDir, aiProvider: provider, claudeCodeModel: ccModel };
       const next = await api.saveSettings(patch);
       useAISession.getState().set({ settings: next });
       useEditor.getState().toast("Settings saved", "success");
@@ -57,12 +73,6 @@ function AISettingsDialog({ onClose }: { onClose: () => void }) {
     } finally {
       setSaving(false);
     }
-  };
-
-  const removeKey = async () => {
-    const next = await api.saveSettings({ anthropicApiKey: "" });
-    setS(next);
-    useAISession.getState().set({ settings: next });
   };
 
   const download = async () => {
@@ -76,16 +86,19 @@ function AISettingsDialog({ onClose }: { onClose: () => void }) {
     <Dialog title="AI Settings" onClose={onClose} width={560} footer={<><Button onClick={onClose}>Cancel</Button><Button primary onClick={save} disabled={saving}>{saving ? "Saving…" : "Save"}</Button></>}>
       <div className="ai-settings">
         <div className="form-grid">
-          <label>Anthropic API key</label>
-          <div className="row" style={{ gap: 6 }}>
-            <input className="text-input" type="password" autoComplete="off" placeholder={s?.hasApiKey ? "•••••••• saved — paste to replace" : "sk-ant-…"} value={key} onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
-            {s?.hasApiKey ? <Button small onClick={removeKey}>Remove</Button> : null}
-          </div>
-          <span className="hint">{s?.hasApiKey ? <span className="ai-ok">✓ Key configured</span> : <span className="ai-bad">No key — Claude can't edit until you add one.</span>} Stored locally in your EditCut data folder.</span>
+          <label>Connection</label>
+          <ConnectClaude onSettings={(x) => { setS(x); setProvider(x.aiProvider ?? "auto"); }} />
 
-          <label>Model</label>
+          <label>Use</label>
+          <Select value={provider} options={PROVIDERS as { value: "auto" | "api" | "claudeCode"; label: string }[]} onChange={setProvider} />
+
+          <label>API model</label>
           <Select value={model} options={MODELS.some((m) => m.value === model) ? MODELS : [...MODELS, { value: model, label: model }]} onChange={setModel} />
-          <span className="hint">Opus 5.5 gives the best edits; Sonnet/Haiku respond faster.</span>
+          <span className="hint">Used with an API key. Opus 5.5 gives the best edits; Sonnet/Haiku respond faster.</span>
+
+          <label>Claude Code model</label>
+          <Select value={ccModel} options={CC_MODELS} onChange={setCcModel} />
+          <span className="hint">Used with the Claude Code sign-in.</span>
 
           <label>Speech-to-text</label>
           <div>

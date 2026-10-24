@@ -13,9 +13,15 @@ const SETTINGS_FILE = path.join(DATA_DIR, "settings.json");
 
 for (const d of [DATA_DIR, MEDIA_DIR, PROJECTS_DIR, TMP_DIR, MODELS_DIR]) fs.mkdirSync(d, { recursive: true });
 
+export type AIProvider = "auto" | "api" | "claudeCode";
+
 export interface Settings {
   anthropicApiKey?: string;
   model: string;
+  /** Which backend runs the AI editor. "auto": API key if set, else Claude Code if signed in. */
+  aiProvider?: AIProvider;
+  /** Model passed to Claude Code (alias like "opus" or a full id); empty = Claude Code's default. */
+  claudeCodeModel?: string;
   exportDirectory: string;
 }
 

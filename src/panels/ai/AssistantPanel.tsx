@@ -8,6 +8,7 @@ import { usePlayback } from "../../store/playback";
 import { IconButton, Select } from "../../ui/kit";
 import { Markdown, toolLabel } from "./toolLabels";
 import { newChat, refreshSettings, sendMessage, stop, useAISession, type ChatItem } from "./aiSession";
+import { ConnectClaude, activeProvider } from "./ConnectClaude";
 import "./ai.css";
 
 export const MODELS = [
@@ -83,32 +84,11 @@ function Item({ it }: { it: ChatItem }) {
 }
 
 function SetupCard() {
-  const settings = useAISession((s) => s.settings);
-  const [key, setKey] = useState("");
-  const [model, setModel] = useState(settings?.model ?? "claude-opus-5-5");
-  const [busy, setBusy] = useState(false);
-  const save = async () => {
-    setBusy(true);
-    try {
-      const s = await api.saveSettings({ anthropicApiKey: key, model });
-      useAISession.getState().set({ settings: s });
-      useEditor.getState().toast(s.hasApiKey ? "Claude is ready" : "Key not saved", s.hasApiKey ? "success" : "error");
-    } catch (e) {
-      useEditor.getState().toast((e as Error).message, "error");
-    } finally {
-      setBusy(false);
-    }
-  };
   return (
     <div className="ai-setup">
       <div className="ai-setup-title"><KeyRound size={15} /> Connect Claude</div>
-      <p className="muted">Add your Anthropic API key to let Claude cut, color, caption and export your timeline. It's stored only on this machine (~/EditCut/settings.json).</p>
-      <input className="text-input" type="password" placeholder="sk-ant-…" value={key} autoComplete="off" onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter" && key.trim()) void save(); }} />
-      <div className="row" style={{ gap: 6 }}>
-        <Select value={model} options={MODELS} onChange={setModel} style={{ flex: 1 }} />
-        <button className="btn primary" disabled={!key.trim() || busy} onClick={save}>{busy ? "Saving…" : "Save"}</button>
-      </div>
-      <a className="ai-link" href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">Get an API key →</a>
+      <p className="muted">Claude cuts, colors, captions and exports your timeline. Connect it once:</p>
+      <ConnectClaude compact />
     </div>
   );
 }
@@ -169,8 +149,12 @@ export default function AssistantPanel() {
     void sendMessage(text);
   };
 
-  const noKey = settings && !settings.hasApiKey;
-  const model = MODELS.find((m) => m.value === settings?.model)?.label.replace(/ \(.*\)/, "") ?? settings?.model;
+  const provider = activeProvider(settings);
+  const noKey = settings && !provider;
+  const model =
+    provider === "claudeCode"
+      ? `via Claude Code${settings?.claudeCodeModel ? ` · ${settings.claudeCodeModel}` : ""}`
+      : MODELS.find((m) => m.value === settings?.model)?.label.replace(/ \(.*\)/, "") ?? settings?.model;
 
   return (
     <div className="ai-panel">

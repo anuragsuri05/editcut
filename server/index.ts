@@ -10,6 +10,7 @@ import { projectsRouter } from "./projects";
 import { exportRouter } from "./export/index";
 import { aiRouter, transcribeRouter } from "./ai/index";
 import { whisperStatus } from "./ai/transcribe";
+import { claudeCodeStatus } from "./ai/claudeCode";
 
 const app = express();
 app.use(express.json({ limit: "500mb" }));
@@ -19,20 +20,26 @@ app.get("/api/health", (_req, res) => {
 });
 app.get("/api/events", eventsHandler);
 
-app.get("/api/settings", (_req, res) => {
+async function settingsPayload() {
   const s = getSettings();
   const w = whisperStatus();
-  res.json({ hasApiKey: !!apiKey(), model: s.model, whisperAvailable: w.available, whisperModel: w.model, exportDirectory: s.exportDirectory, dataDirectory: DATA_DIR });
-});
-app.post("/api/settings", (req, res) => {
-  const { anthropicApiKey, model, exportDirectory } = req.body ?? {};
+  return {
+    hasApiKey: !!apiKey(), model: s.model, aiProvider: s.aiProvider ?? "auto", claudeCodeModel: s.claudeCodeModel ?? "",
+    claudeCode: await claudeCodeStatus(),
+    whisperAvailable: w.available, whisperModel: w.model, exportDirectory: s.exportDirectory, dataDirectory: DATA_DIR,
+  };
+}
+app.get("/api/settings", async (_req, res) => res.json(await settingsPayload()));
+app.post("/api/settings", async (req, res) => {
+  const { anthropicApiKey, model, exportDirectory, aiProvider, claudeCodeModel } = req.body ?? {};
   const patch: Record<string, string> = {};
   if (typeof anthropicApiKey === "string") patch.anthropicApiKey = anthropicApiKey.trim();
   if (typeof model === "string" && model) patch.model = model;
   if (typeof exportDirectory === "string" && exportDirectory) patch.exportDirectory = exportDirectory;
-  const s = updateSettings(patch);
-  const w = whisperStatus();
-  res.json({ hasApiKey: !!apiKey(), model: s.model, whisperAvailable: w.available, whisperModel: w.model, exportDirectory: s.exportDirectory, dataDirectory: DATA_DIR });
+  if (aiProvider === "auto" || aiProvider === "api" || aiProvider === "claudeCode") patch.aiProvider = aiProvider;
+  if (typeof claudeCodeModel === "string") patch.claudeCodeModel = claudeCodeModel.trim();
+  updateSettings(patch);
+  res.json(await settingsPayload());
 });
 
 app.post("/api/reveal", (req, res) => {
