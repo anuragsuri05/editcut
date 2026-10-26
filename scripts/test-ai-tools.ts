@@ -390,6 +390,8 @@ app.use("/api/ai", aiRouter);
 app.use("/api/media", transcribeRouter);
 const server = app.listen(0);
 const port = (server.address() as { port: number }).port;
+// pin the API-key provider so this checks the no-key path (Automatic would fall back to a signed-in Claude Code)
+(await import("../server/config")).updateSettings({ aiProvider: "api", anthropicApiKey: "" });
 const res = await fetch(`http://127.0.0.1:${port}/api/ai/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ project, sequenceId: mainId, selection: { clipIds: [], itemIds: [] }, playhead: 0, history: [], message: "hi" }) });
 const sse = await res.text();
 const sseEvents = sse.split("\n\n").filter((c) => c.startsWith("data: ")).map((c) => JSON.parse(c.slice(6)));

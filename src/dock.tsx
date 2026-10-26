@@ -56,8 +56,21 @@ export function openPanel(id: string): void {
     existing.api.setActive();
     return;
   }
-  dockApi.addPanel({ id, component: id, title: PANELS[id].title, floating: { width: 420, height: 480 } });
+  // dock as a tab next to related panels (like Premiere); float only if none are open
+  const ref = (DOCK_NEAR[id] ?? []).find((r) => dockApi!.getPanel(r));
+  if (ref) dockApi.addPanel({ id, component: id, title: PANELS[id].title, position: { referencePanel: ref, direction: "within" } });
+  else dockApi.addPanel({ id, component: id, title: PANELS[id].title, floating: { width: 420, height: 480 } });
 }
+
+/** Where a panel docks when opened: the first of these panels that is present. */
+const INSPECTORS = ["properties", "essentialSound", "lumetri", "effectControls", "ai", "program"];
+const BINS = ["project", "mediaBrowser", "effects", "markers", "history", "info"];
+const DOCK_NEAR: Record<string, string[]> = {
+  lumetri: INSPECTORS, essentialSound: INSPECTORS, properties: INSPECTORS, ai: INSPECTORS, audioMixer: ["effectControls", "source", ...INSPECTORS],
+  effectControls: ["source", "lumetriScopes", ...INSPECTORS], lumetriScopes: ["source", "effectControls", ...INSPECTORS],
+  effects: BINS, markers: BINS, history: BINS, info: BINS, mediaBrowser: BINS, project: BINS, exportQueue: BINS,
+  text: ["timeline", ...BINS], timeline: ["text"], tools: [], audioMeters: [], source: ["effectControls", "program"], program: ["source"],
+};
 
 function PanelFrame(props: IDockviewPanelProps) {
   const id = props.api.id;

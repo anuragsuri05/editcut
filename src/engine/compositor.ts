@@ -435,7 +435,8 @@ export class Renderer {
           break;
         }
         case "blur":
-          blur(p.radius, p.direction);
+          // radius -> Gaussian sigma = radius / 2, matching the ffmpeg exporter (gblur sigma)
+          blur(p.radius * 0.5, p.direction);
           break;
         case "sharpen":
           step(SHARPEN_FRAG, "sharpen", (u) => { gl.uniform2f(u("u_size"), W, H); gl.uniform1f(u("u_amount"), p.amount); });
@@ -460,7 +461,7 @@ export class Renderer {
           g.draw(this.prog("brightpass", BRIGHTPASS_FRAG), glow, [["u_tex", base.tex]], (u) => gl.uniform1f(u("u_threshold"), p.threshold));
           for (const dir of [[1 / W, 0], [0, 1 / H]] as const) {
             const o2 = g.acquire(W, H);
-            g.draw(this.prog("blur", BLUR_FRAG), o2, [["u_tex", glow.tex]], (u) => { gl.uniform2f(u("u_dir"), dir[0], dir[1]); gl.uniform1f(u("u_sigma"), Math.max(0.5, p.radius)); });
+            g.draw(this.prog("blur", BLUR_FRAG), o2, [["u_tex", glow.tex]], (u) => { gl.uniform2f(u("u_dir"), dir[0], dir[1]); gl.uniform1f(u("u_sigma"), Math.max(0.5, p.radius * 0.5)); });
             g.release(glow);
             glow = o2;
           }

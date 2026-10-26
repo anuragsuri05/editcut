@@ -71,6 +71,7 @@ npm run test:ops      # editing operations (insert/overwrite/ripple/roll/razor/e
 npm run test:ai       # every Claude tool against real media (transcription, captions, cuts…)
 npm run test:export   # 15 real ffmpeg renders checked with ffprobe
 npm run test:predict  # Content Lab scoring model sanity checks
+npm run test:e2e      # 35-step user journey in headless Chrome (needs `npm run dev` running)
 ```
 
 The AI and export suites need the sample media in `samples/`. Generate it with `sh scripts/make-samples.sh` (macOS: it uses `say` for the speech sample).
