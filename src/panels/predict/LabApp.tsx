@@ -15,7 +15,7 @@ export default function LabApp() {
   return (
     <div className="app lab-app">
       <div className="header lab-app-header">
-        <div className="logo"><span className="logo-mark">Ec</span></div>
+        <div className="logo"><img className="logo-mark" src="/brand/logo-64.png" srcSet="/brand/logo-64.png 1x, /brand/logo-128.png 2x" alt="EditCut" /></div>
         <div className="lab-app-name">EditCut <span>Content Lab</span></div>
         <span className="spacer" />
         <a className="header-btn lab-app-link" href="/">

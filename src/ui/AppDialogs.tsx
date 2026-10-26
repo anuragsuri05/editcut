@@ -46,6 +46,9 @@ function KeyboardShortcutsDialog({ onClose }: { onClose: () => void }) {
 function AboutDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog title="About EditCut" onClose={onClose} footer={<Button primary onClick={onClose}>Close</Button>}>
+      <div style={{ display: "flex", justifyContent: "center", margin: "4px 0 12px" }}>
+        <img src="/brand/logo-128.png" srcSet="/brand/logo-128.png 1x, /brand/logo-512.png 4x" width={96} height={96} alt="EditCut logo" style={{ filter: "drop-shadow(0 0 14px rgba(168, 85, 247, 0.45))" }} />
+      </div>
       <p><b>EditCut</b> — an AI-powered non-linear video editor with Claude built in.</p>
       <p className="muted">Premiere-style editing, color, audio, graphics, captions and export, rendered with ffmpeg.</p>
     </Dialog>

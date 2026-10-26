@@ -25,7 +25,7 @@ function Header() {
   return (
     <div className="header">
       <div className="logo">
-        <span className="logo-mark">Ec</span>
+        <img className="logo-mark" src="/brand/logo-64.png" srcSet="/brand/logo-64.png 1x, /brand/logo-128.png 2x" alt="EditCut" />
       </div>
       <div className="mode-tabs">
         {(["import", "edit", "export", "predict"] as const).map((m) => (
