@@ -5,3 +5,4 @@ dist
 .env
 samples
 tribe-worker/.venv
+__pycache__/
