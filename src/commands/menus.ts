@@ -84,7 +84,8 @@ export const MENUS: Menu[] = [
       "ai.autoEdit", "ai.roughCut", "ai.removeSilences", "ai.removeFillerWords", "ai.sceneDetect", "-",
       "captions.transcribe", "captions.generate", "captions.translate", "-",
       "ai.enhanceSpeech", "ai.autoColor", "ai.colorMatch", "ai.autoDuck", "ai.autoReframeVertical", "ai.beatSync", "-",
-      "ai.describeFrame",
+      "ai.describeFrame", "-",
+      "lab.open", "lab.analyzeSequence", "lab.analyzeSelected",
     ],
   },
   {

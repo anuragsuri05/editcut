@@ -11,6 +11,7 @@ import { exportRouter } from "./export/index";
 import { aiRouter, transcribeRouter } from "./ai/index";
 import { whisperStatus } from "./ai/transcribe";
 import { claudeCodeStatus } from "./ai/claudeCode";
+import { predictRouter, PREDICT_DIR } from "./predict/index";
 
 const app = express();
 app.use(express.json({ limit: "500mb" }));
@@ -55,6 +56,8 @@ app.use("/api/media", mediaRouter);
 app.get("/api/fs", browseHandler);
 app.use("/api/projects", projectsRouter);
 app.use("/api/export", exportRouter);
+app.use("/api/predict", predictRouter);
+app.use("/files/predict", express.static(PREDICT_DIR, { fallthrough: false, maxAge: "1h" }));
 app.use("/api/ai", aiRouter);
 
 // production: serve built client

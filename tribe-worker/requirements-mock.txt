@@ -1,0 +1,7 @@
+# Development only: run the worker without the model (TRIBE_MOCK=1).
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+nilearn>=0.10.3
+numpy
+pandas

@@ -7,13 +7,17 @@ import { loadUserKeys } from "./commands/registry";
 import { installKeyboard } from "./keyboard";
 import { initProjectIO } from "./projectIO";
 import App from "./App";
+import LabApp, { isLabApp } from "./panels/predict/LabApp";
 
+const lab = isLabApp(); // ?app=lab or /lab: standalone Content Lab without the editor
 loadUserKeys();
-installKeyboard();
-initProjectIO();
+if (!lab) {
+  installKeyboard();
+  initProjectIO();
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    {lab ? <LabApp /> : <App />}
   </StrictMode>,
 );

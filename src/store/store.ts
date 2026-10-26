@@ -11,7 +11,7 @@ export type ToolId =
   | "select" | "trackForward" | "trackBackward" | "ripple" | "roll" | "rateStretch" | "razor"
   | "slip" | "slide" | "pen" | "rectangle" | "ellipse" | "hand" | "zoom" | "type";
 
-export type AppMode = "import" | "edit" | "export";
+export type AppMode = "import" | "edit" | "export" | "predict";
 
 export interface HistoryEntry {
   label: string;

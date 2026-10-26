@@ -8,6 +8,7 @@ import { WORKSPACES } from "./workspaces";
 import { runCommand } from "./commands/registry";
 import ImportMode from "./panels/project/ImportMode";
 import ExportMode from "./panels/export/ExportMode";
+import ContentLab from "./panels/predict/ContentLab";
 import { Sparkles, Upload } from "lucide-react";
 
 function Header() {
@@ -27,9 +28,9 @@ function Header() {
         <span className="logo-mark">Ec</span>
       </div>
       <div className="mode-tabs">
-        {(["import", "edit", "export"] as const).map((m) => (
+        {(["import", "edit", "export", "predict"] as const).map((m) => (
           <button key={m} className={"mode-tab" + (mode === m ? " active" : "")} onClick={() => setUI({ mode: m })}>
-            {m[0].toUpperCase() + m.slice(1)}
+            {m === "predict" ? "Content Lab" : m[0].toUpperCase() + m.slice(1)}
           </button>
         ))}
       </div>
@@ -98,6 +99,7 @@ export default function App() {
         </div>
         {mode === "import" ? <ImportMode /> : null}
         {mode === "export" ? <ExportMode /> : null}
+        {mode === "predict" ? <ContentLab /> : null}
       </div>
       <StatusBar />
       <DialogHost />

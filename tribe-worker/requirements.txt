@@ -1,0 +1,6 @@
+# EditCut TRIBE v2 worker. TRIBE v2 itself pins torch>=2.5.1,<2.7 (needs Linux/Windows + CUDA, or Apple Silicon).
+tribev2 @ git+https://github.com/facebookresearch/tribev2.git
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+nilearn>=0.10.3

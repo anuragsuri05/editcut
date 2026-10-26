@@ -1,6 +1,7 @@
 // Client for the EditCut local server (server/index.ts, port 5174, proxied by Vite at /api and /files).
 // This file is the HTTP contract between browser and server.
 import type { ExportJob, ExportSettings, ID, MediaAsset, Project, Transcript } from "@shared/types";
+import type { PredictJob, PredictOptions, PredictionReport } from "@shared/predict";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -20,6 +21,12 @@ const post = (url: string, body: unknown) =>
   fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
 export interface ProjectSummary { id: ID; name: string; updatedAt: number; path: string }
+export interface PredictStatus {
+  tribe: { configured: boolean; url: string; reachable: boolean; model?: string; device?: string; mock?: boolean; modalities?: string[]; error?: string };
+  claude: "api" | "claudeCode" | null;
+  whisper: boolean;
+}
+export interface PredictReportSummary { id: ID; fileName: string; createdAt: number; durationSec: number; score: number; bestPlatform: string; tribe: string; thumbUrl?: string }
 export interface ClaudeCodeStatus { installed: boolean; loggedIn: boolean; authMethod?: string; email?: string; subscriptionType?: string; version?: string; loginInProgress?: boolean }
 export type AIProvider = "auto" | "api" | "claudeCode";
 export interface ServerSettings { hasApiKey: boolean; model: string; aiProvider: AIProvider; claudeCodeModel: string; claudeCode: ClaudeCodeStatus; whisperAvailable: boolean; whisperModel?: string; exportDirectory: string; dataDirectory: string }
@@ -78,6 +85,31 @@ export const api = {
   claudeCodeLogin: (method: "claudeai" | "console" = "claudeai") => post("/api/ai/claude-code/login", { method }).then((r) => json<{ ok: true }>(r)),
   claudeCodeLogout: () => post("/api/ai/claude-code/logout", {}).then((r) => json<ClaudeCodeStatus>(r)),
 
+  // ---- Content Lab (predicted audience response; TRIBE v2 backend) ----
+  predictStatus: () => fetch("/api/predict/status").then((r) => json<PredictStatus>(r)),
+  savePredictSettings: (s: { tribeUrl?: string; tribeToken?: string }) => post("/api/predict/settings", s).then((r) => json<PredictStatus>(r)),
+  /** Upload a video file for analysis. Returns a job; progress arrives as {type:"predict"} server events. */
+  predictUpload: (file: File, options: PredictOptions, onProgress?: (fraction: number) => void): Promise<PredictJob> =>
+    new Promise((resolve, reject) => {
+      const fd = new FormData();
+      fd.append("file", file, file.name);
+      fd.append("options", JSON.stringify(options));
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/predict/upload");
+      xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
+      xhr.onload = () => (xhr.status < 300 ? resolve(JSON.parse(xhr.responseText)) : reject(new Error(xhr.responseText || xhr.statusText)));
+      xhr.onerror = () => reject(new Error("Upload failed"));
+      xhr.send(fd);
+    }),
+  /** Analyze a file already on this machine (an imported asset's path or a fresh export). */
+  predictPath: (path: string, options: PredictOptions, fileName?: string, source?: string) => post("/api/predict/from-path", { path, options, fileName, source }).then((r) => json<PredictJob>(r)),
+  cancelPredict: (jobId: ID) => fetch(`/api/predict/jobs/${jobId}`, { method: "DELETE" }).then((r) => json<{ ok: true }>(r)),
+  predictAsset: (assetId: ID, options: PredictOptions) => post("/api/predict/from-asset", { assetId, options }).then((r) => json<PredictJob>(r)),
+  predictJobs: () => fetch("/api/predict/jobs").then((r) => json<PredictJob[]>(r)),
+  predictReports: () => fetch("/api/predict/reports").then((r) => json<PredictReportSummary[]>(r)),
+  predictReport: (id: ID) => fetch(`/api/predict/reports/${id}`).then((r) => json<PredictionReport>(r)),
+  deletePredictReport: (id: ID) => fetch(`/api/predict/reports/${id}`, { method: "DELETE" }).then((r) => json<{ ok: true }>(r)),
+
   // ---- settings ----
   getSettings: () => fetch("/api/settings").then((r) => json<ServerSettings>(r)),
   saveSettings: (s: Partial<{ anthropicApiKey: string; model: string; exportDirectory: string; aiProvider: AIProvider; claudeCodeModel: string }>) => post("/api/settings", s).then((r) => json<ServerSettings>(r)),
@@ -118,7 +150,8 @@ export type ServerEvent =
   | { type: "media"; asset: MediaAsset }
   | { type: "media-progress"; id: ID; stage: string; progress: number }
   | { type: "export"; job: ExportJob }
-  | { type: "transcribe-progress"; id: ID; progress: number };
+  | { type: "transcribe-progress"; id: ID; progress: number }
+  | { type: "predict"; job: PredictJob };
 
 // ---- AI agent (Claude) streaming chat ----
 export type AIEvent =

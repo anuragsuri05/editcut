@@ -7,3 +7,4 @@ import "../panels/timeline/commands";
 import "../panels/effects/commands";
 import "../panels/ai/commands";
 import "../panels/export/commands";
+import "../panels/predict/commands";

@@ -22,6 +22,9 @@ export interface Settings {
   aiProvider?: AIProvider;
   /** Model passed to Claude Code (alias like "opus" or a full id); empty = Claude Code's default. */
   claudeCodeModel?: string;
+  /** Content Lab: URL of the TRIBE v2 worker (tribe-worker/) and its bearer token. */
+  tribeUrl?: string;
+  tribeToken?: string;
   exportDirectory: string;
 }
 

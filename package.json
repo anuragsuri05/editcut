@@ -13,7 +13,8 @@
     "test:ops": "tsx scripts/test-ops.ts",
     "test:ai": "tsx scripts/test-ai-tools.ts",
     "test:export": "tsx scripts/test-export.ts",
-    "test": "npm run typecheck && npm run test:ops && npm run test:ai && npm run test:export"
+    "test": "npm run typecheck && npm run test:ops && npm run test:ai && npm run test:export && npm run test:predict",
+    "test:predict": "tsx scripts/test-predict-score.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",

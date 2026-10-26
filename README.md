@@ -22,6 +22,20 @@ Open the AI Assistant panel (or **AI Settings**, `Cmd+,`) and choose one of two 
 
 Data lives in `~/EditCut` (imported media, proxies, thumbnails, projects). Exports default to `~/Movies/EditCut`. Override these with `EDITCUT_DATA` and the Export settings.
 
+## Content Lab (predict performance before you post)
+
+Content Lab is a standalone tool. Open it from the **Content Lab** tab in the editor header, or on its own at `http://localhost:5173/?app=lab`. Upload a video, or analyze the active sequence or a selected clip, and you get:
+
+- a content score with hook, pacing, clarity and neural-engagement sub-scores
+- predicted attention for every second, synced to the video, thumbnails and the transcript
+- simulated retention curves for TikTok, Reels, Shorts, YouTube, LinkedIn and X
+- the strongest and weakest moments, and suggestions with timestamps and an estimated impact
+- a written coaching report from Claude, using your Claude Code sign-in or API key
+
+**Brain model.** Content Lab can use Meta's open-source **TRIBE v2** brain encoding model as a backend. TRIBE v2 predicts the average viewer's cortical (fMRI) response every second. It needs a CUDA GPU, so it runs as a separate worker (`tribe-worker/`). You can run that worker on a GPU machine, in Docker or on Modal; see `tribe-worker/README.md`. Without the worker, Content Lab still works from measured video features alone.
+
+Scores and retention curves are EditCut's estimates (`server/predict/score.ts`), not platform analytics. TRIBE v2 is licensed CC BY-NC 4.0 (non-commercial).
+
 ## Architecture
 
 ```
@@ -56,6 +70,7 @@ npm test              # typecheck + all suites below
 npm run test:ops      # editing operations (insert/overwrite/ripple/roll/razor/extract…)
 npm run test:ai       # every Claude tool against real media (transcription, captions, cuts…)
 npm run test:export   # 15 real ffmpeg renders checked with ffprobe
+npm run test:predict  # Content Lab scoring model sanity checks
 ```
 
 The AI and export suites need the sample media in `samples/`. Generate it with `sh scripts/make-samples.sh` (macOS: it uses `say` for the speech sample).
